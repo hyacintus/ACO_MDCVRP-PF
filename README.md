@@ -16,12 +16,12 @@ By using the CSV files present in both folders, it is possible to test the three
 
 Algorithms:
 The three algorithms are located in the same main folder as the experiment folders:
-1. Heuristic
-2. Metaheuristic_1
-3. Metaheuristic_2
+1. `Heuristic.py`
+2. `Metaheuristic_1.py`
+3. `Metaheuristic_2.py`
 
 Requirements:
-- To run Metaheuristic_1 and Metaheuristic_2, the file `funzioni.py` must also be present in the same folder as the algorithms.
+- To run `Metaheuristic_1.py` and `Metaheuristic_2.py`, the file `funzioni.py` must also be present in the same folder as the algorithms.
 
 Quick Instructions:
 1. Ensure that the folders Experiment_5_1 and Experimenti_5_5 are in the same main folder as the three algorithms and `funzioni.py`.
