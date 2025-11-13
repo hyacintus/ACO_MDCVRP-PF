@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 import pickle
+import json
+import csv
 
 # ------------------------ DEFINIZIONE VETTORE_ATTIVAZIONE E VETTORE_CAMION --------------------------------------
 df_Coordinate = pd.read_csv('Node Matrix.csv')
@@ -211,3 +213,130 @@ for it in range(MaxIt):
 # Salvataggio dell'oggetto ant_fleet in un file binario
 with open('ant_fleet.pkl', 'wb') as f:
     pickle.dump(ant_fleet, f)
+
+
+def save_ant_fleet(ant_fleet, prefix="ant_fleet"):
+    """
+    Salva l'oggetto ant_fleet in quattro formati:
+    - Pickle (.pkl)
+    - JSON (.json)
+    - CSV semplice (.csv)  -> Tour e Quantity come stringhe con '-'
+    - CSV expanded (.csv) -> colonne: Fleet,Ant,Cost,Nodo_1,Nodo_2,Quantità_2,Nodo_3,Quantità_3,...,Nodo_finale
+
+    Parameters:
+        ant_fleet: lista di Ant_Fleet
+        prefix: prefisso dei file generati
+    """
+
+    # ------------------- 1. Pickle -------------------
+    with open(f"{prefix}.pkl", "wb") as f:
+        pickle.dump(ant_fleet, f)
+
+    # ------------------- 2. JSON -------------------
+    data_to_save = []
+    for fleet in ant_fleet:
+        fleet_dict = {
+            "FleetCost": fleet.Cost,
+            "Ants": [
+                {
+                    "Cost": ant.Cost,
+                    "Tour": ant.Tour,
+                    "Quantity": ant.Quantity
+                }
+                for ant in fleet.ant
+            ]
+        }
+        data_to_save.append(fleet_dict)
+
+    with open(f"{prefix}.json", "w", encoding="utf-8") as f:
+        json.dump(data_to_save, f, indent=4, ensure_ascii=False)
+
+    # ------------------- 3. CSV semplice -------------------
+    with open(f"{prefix}_simple.csv", "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Fleet", "Ant", "Cost", "Tour", "Quantity"])
+        for i, fleet in enumerate(ant_fleet):
+            for j, ant in enumerate(fleet.ant):
+                writer.writerow([
+                    i, j, ant.Cost,
+                    "-".join(map(str, ant.Tour)),
+                    "-".join(map(str, ant.Quantity))
+                ])
+
+    # ------------------- 4. CSV expanded corretto con intestazioni logiche -------------------
+    # 1) Determina il massimo numero di nodi (lunghezza Tour) tra tutte le Ant
+    max_nodes = 0
+    rows = []
+    for i, fleet in enumerate(ant_fleet):
+        for j, ant in enumerate(fleet.ant):
+            tour = ant.Tour or []
+            # ignora ant vuote
+            if len(tour) == 0:
+                continue
+            max_nodes = max(max_nodes, len(tour))
+
+            # costruisci la riga rispettando l'ordine logico
+            row = [i, j, ant.Cost]
+            # Nodo di partenza
+            row.append(tour[0])
+
+            # nodi intermedi: per k in [1 .. len(tour)-2] aggiungi Nodo_k e Quantità_k (quantities sono allineate agli interni)
+            # Quantity index per nodo intermedio k è k-1
+            for k in range(1, len(tour) - 1):
+                nodo = tour[k]
+                # protezione: se Quantity più corta, usa ""
+                qty = ant.Quantity[k - 1] if k - 1 < len(ant.Quantity) else ""
+                row.extend([nodo, qty])
+
+            # nodo finale (se esiste distinto dalla partenza)
+            if len(tour) >= 2:
+                row.append(tour[-1])
+
+            rows.append(row)
+
+    # Se non ci sono righe (tutte le ant vuote) evitamo crash
+    if not rows:
+        # Creiamo file vuoti/minimi
+        with open(f"{prefix}_expanded.csv", "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Fleet", "Ant", "Cost", "Nodo_1", "Nodo_finale"])
+        print(f"Files salvati (ma expanded vuoto): {prefix}.pkl, {prefix}.json, {prefix}_simple.csv, {prefix}_expanded.csv")
+        return
+
+    # 2) Costruisci intestazione in base a max_nodes:
+    # sempre: Fleet, Ant, Cost, Nodo_1
+    header = ["Fleet", "Ant", "Cost", "Nodo_1"]
+
+    # se max_nodes == 1 allora non ci sono nodi successivi (caso improbabile)
+    # per ogni nodo intermedio i = 2 .. max_nodes-1 aggiungi "Nodo_i", "Quantità_i"
+    for node_idx in range(2, max_nodes):
+        header.append(f"Nodo_{node_idx}")
+        header.append(f"Quantità_{node_idx}")
+
+    # aggiungi nodo finale (Nodo_max_nodes) se max_nodes >= 2
+    if max_nodes >= 2:
+        header.append(f"Nodo_{max_nodes}")
+
+    # 3) Pad delle righe affinchè tutte abbiano len(header) colonne
+    target_len = len(header)
+    padded_rows = []
+    for r in rows:
+        # converti tutti gli elementi in stringhe o lascia numeri (csv.writer gestisce)
+        # calcola quanti padding servono
+        padding_needed = target_len - len(r)
+        if padding_needed > 0:
+            r_extended = r + [""] * padding_needed
+        else:
+            r_extended = r[:target_len]  # in caso abbia troppe colonne, tronca (non dovrebbe succedere)
+        padded_rows.append(r_extended)
+
+    # 4) Scrivi il CSV expanded
+    with open(f"{prefix}_expanded.csv", "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
+        writer.writerows(padded_rows)
+
+    print(f"Files salvati: {prefix}.pkl, {prefix}.json, {prefix}_simple.csv, {prefix}_expanded.csv")
+
+# Salva tutti i formati
+save_ant_fleet(ant_fleet, prefix="ant_fleet")
