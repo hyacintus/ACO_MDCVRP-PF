@@ -4,6 +4,9 @@ from funzioni import *
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pickle
+# Per Salvare i File di Output
+import json
+import csv
 
 # ------------------------ DEFINIZIONE VETTORE_ATTIVAZIONE E VETTORE_CAMION --------------------------------------
 df_Coordinate = pd.read_csv('Node Matrix.csv')
@@ -320,3 +323,108 @@ with open('Winner_fleet.pkl', 'wb') as f:
 
 print("\n===== RISULTATO FINALE =====")
 print(f"Costo della flotta vincitrice: {Winner_fleet.Cost}")
+
+
+# ------------------------------------------------------------------------------------------------------
+# --------------------------------------SALVATAGGIO FILE DI OUTPUT--------------------------------------
+def save_fleet_data(fleet_data, prefix="fleet"):
+    """
+    Salva una o più flotte (Ant_Fleet o lista di Ant_Fleet)
+    nei formati: pickle, json, csv semplice, csv expanded.
+
+    Riconosce automaticamente se fleet_data è una singola flotta o una lista.
+    """
+
+    # Se è un singolo oggetto, mettilo in lista per gestire il codice in modo uniforme
+    if not isinstance(fleet_data, list):
+        fleet_data = [fleet_data]
+
+    # ------------------- 1. Pickle -------------------
+    with open(f"{prefix}.pkl", "wb") as f:
+        pickle.dump(fleet_data, f)
+
+    # ------------------- 2. JSON -------------------
+    data_to_save = []
+    for fleet in fleet_data:
+        fleet_dict = {
+            "FleetCost": fleet.Cost,
+            "Ants": [
+                {
+                    "Cost": ant.Cost,
+                    "Tour": ant.Tour,
+                    "Quantity": ant.Quantity
+                }
+                for ant in fleet.ant
+            ]
+        }
+        data_to_save.append(fleet_dict)
+
+    with open(f"{prefix}.json", "w", encoding="utf-8") as f:
+        json.dump(data_to_save, f, indent=4, ensure_ascii=False)
+
+    # ------------------- 3. CSV semplice -------------------
+    with open(f"{prefix}_simple.csv", "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Fleet", "Ant", "Cost", "Tour", "Quantity"])
+        for i, fleet in enumerate(fleet_data):
+            for j, ant in enumerate(fleet.ant):
+                writer.writerow([
+                    i, j, ant.Cost,
+                    "-".join(map(str, ant.Tour)),
+                    "-".join(map(str, ant.Quantity))
+                ])
+
+    # ------------------- 4. CSV expanded -------------------
+    max_nodes = 0
+    rows = []
+    for i, fleet in enumerate(fleet_data):
+        for j, ant in enumerate(fleet.ant):
+            tour = ant.Tour or []
+            if len(tour) == 0:
+                continue
+            max_nodes = max(max_nodes, len(tour))
+
+            row = [i, j, ant.Cost]
+            row.append(tour[0])
+            for k in range(1, len(tour) - 1):
+                nodo = tour[k]
+                qty = ant.Quantity[k - 1] if k - 1 < len(ant.Quantity) else ""
+                row.extend([nodo, qty])
+            if len(tour) >= 2:
+                row.append(tour[-1])
+            rows.append(row)
+
+    if not rows:
+        with open(f"{prefix}_expanded.csv", "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Fleet", "Ant", "Cost", "Nodo_1", "Nodo_finale"])
+        print(
+            f"Files salvati (ma expanded vuoto): {prefix}.pkl, {prefix}.json, {prefix}_simple.csv, {prefix}_expanded.csv")
+        return
+
+    # Costruisci intestazioni
+    header = ["Fleet", "Ant", "Cost", "Nodo_1"]
+    for node_idx in range(2, max_nodes):
+        header.append(f"Nodo_{node_idx}")
+        header.append(f"Quantità_{node_idx}")
+    if max_nodes >= 2:
+        header.append(f"Nodo_{max_nodes}")
+
+    target_len = len(header)
+    padded_rows = []
+    for r in rows:
+        padding_needed = target_len - len(r)
+        padded_rows.append(r + [""] * padding_needed if padding_needed > 0 else r[:target_len])
+
+    with open(f"{prefix}_expanded.csv", "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
+        writer.writerows(padded_rows)
+
+    print(f"Files salvati: {prefix}.pkl, {prefix}.json, {prefix}_simple.csv, {prefix}_expanded.csv")
+
+
+# Salva tutti i formati
+save_fleet_data(Winner_fleet, prefix="Winner_fleet")
+
+
