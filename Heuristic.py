@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import pickle
+# Per Salvare i File di Output
 import json
 import csv
 
@@ -214,7 +215,8 @@ for it in range(MaxIt):
 with open('ant_fleet.pkl', 'wb') as f:
     pickle.dump(ant_fleet, f)
 
-
+# ------------------------------------------------------------------------------------------------------
+# --------------------------------------SALVATAGGIO FILE DI OUTPUT--------------------------------------
 def save_ant_fleet(ant_fleet, prefix="ant_fleet"):
     """
     Salva l'oggetto ant_fleet in quattro formati:
@@ -340,3 +342,4 @@ def save_ant_fleet(ant_fleet, prefix="ant_fleet"):
 
 # Salva tutti i formati
 save_ant_fleet(ant_fleet, prefix="ant_fleet")
+
